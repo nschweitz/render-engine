@@ -1,12 +1,13 @@
 use render_engine as re;
 
+use re::collection::{Set, Data, CollectionData};
 use re::collection_cache::pds_for_buffers;
-use re::mesh::PrimitiveTopology;
-use re::object::{ObjectPrototype, Object};
+use re::mesh::{PrimitiveTopology, Vertex};
+use re::object::{ObjectPrototype, Object, Drawcall};
 use re::pipeline_cache::PipelineSpec;
 use re::system::{Pass, System};
 use re::window::Window;
-use re::{render_passes, Format, Image, Pipeline, Queue, Set};
+use re::{render_passes, Format, Image, Pipeline, Queue, RenderPass};
 
 use vulkano::command_buffer::DynamicState;
 use vulkano::pipeline::viewport::Viewport;
@@ -14,6 +15,7 @@ use vulkano::pipeline::viewport::Viewport;
 use nalgebra_glm::*;
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use tests_render_engine::mesh::{convert_meshes, fullscreen_quad, load_obj};
 use tests_render_engine::{relative_path, OrbitCamera, Matrix4};
@@ -93,7 +95,7 @@ fn main() {
         ),
         custom_dynamic_state: None,
     }
-    .build(queue.clone(), render_pass.clone());
+    .build(queue.clone(), rpass3.clone());
 
     // create fullscreen quad to debug cubemap
     let quad = fullscreen_quad(
@@ -103,24 +105,43 @@ fn main() {
         relative_path("shaders/point-shadow/display_cubemap_frag.glsl"),
     );
 
+    // load dragon
+    let (mut models, _materials) =
+        load_obj(&relative_path("meshes/raptor.obj")).expect("Couldn't load OBJ file");
+    let mesh = convert_meshes(&[models.remove(0)]).remove(0);
+
+    let mut base_object = ObjectPrototype {
+        vs_path: relative_path("shaders/point-shadow/shadow_cast_vert.glsl"),
+        fs_path: relative_path("shaders/point-shadow/shadow_cast_frag.glsl"),
+        fill_type: PrimitiveTopology::TriangleList,
+        read_depth: true,
+        write_depth: true,
+        mesh,
+        collection: (),
+        custom_dynamic_state: None,
+    };
+
     // create 6 different dragon objects, each with a different view matrix and
     // dynamic state, to draw to the 6 different faces of the patched texture
-    let shadow_casters = convert_to_shadow_casters(queue.clone(), pipe_caster, base_object.clone());
+    let shadow_casters = convert_to_shadow_casters(queue.clone(), rpass1.clone(),
+        base_object.clone());
 
     // create a version of the base object with shaders for rendering the
     // final image
-    let object_final = Object {
-        pipeline_spec: PipelineSpec {
-            vs_path: relative_path("shaders/point-shadow/final_vert.glsl"),
-            fs_path: relative_path("shaders/point-shadow/final_frag.glsl"),
-            ..base_object.pipeline_spec.clone()
-        },
+    let object_final = ObjectPrototype {
+        vs_path: relative_path("shaders/point-shadow/final_vert.glsl"),
+        fs_path: relative_path("shaders/point-shadow/final_frag.glsl"),
+        // FIXME: Collections has to somehow end up with depth sampler here
         ..base_object
-    };
+    }
+    .build(queue.clone(), rpass3.clone());
+
     let pipeline_final = object_final.pipeline_spec.concrete(device.clone(), rpass3);
 
     // used in main loop
-    let mut all_objects = HashMap::new();
+    // If we don't make this dyn, it breaks because shadow_casters and quad have different type
+    // thingies: shadow_casters is Object<..., ..., ..., ...>, quad is Object<()>
+    let mut all_objects: HashMap<&str, Vec<Arc<dyn Drawcall>>> = HashMap::new();
     all_objects.insert("shadow", shadow_casters);
     all_objects.insert("cubemap_view", vec![quad]);
 
@@ -152,11 +173,11 @@ fn main() {
     println!("FPS: {}", window.get_fps());
 }
 
-fn convert_to_shadow_casters(
+fn convert_to_shadow_casters<V: Vertex, D: CollectionData>(
     queue: Queue,
-    pipeline: Pipeline,
-    base_object: RenderableObject,
-) -> Vec<RenderableObject> {
+    rpass: RenderPass,
+    base_object: ObjectPrototype<V, D>,
+) -> Vec<Object<(Set<(Matrix4,)>, Set<(Matrix4,)>, Set<(Matrix4,)>, Set<(Light,)>)>> {
     // if you want to make point lamps cast shadows, you need shadow cubemaps
     // render-engine doesn't support geometry shaders, so the easiest way to do
     // this is to convert one object into 6 different ones, one for each face of
@@ -189,43 +210,49 @@ fn convert_to_shadow_casters(
         [5.0, 0.0],
     ];
 
-    let proj_set = create_projection_set(queue.clone(), pipeline.clone());
+    let (near, far) = (1.0, 250.0);
+    // pi / 2 = 90 deg., 1.0 = aspect ratio
+    // we use a fov 1% too big to make sure sampling doesn't go between patches
+    let proj_data: Matrix4 = perspective(1.0, std::f32::consts::PI / 2.0 * 1.01, near, far).into();
+
+    let model_data: Matrix4 = scale(&Mat4::identity(), &vec3(0.1, 0.1, 0.1)).into();
 
     view_directions
         .iter()
         .zip(&up_directions)
         .zip(&patch_positions)
         .map(|((dir, up), patch_pos): ((&Vec3, &Vec3), &[f32; 2])| {
-            let view_matrix: [[f32; 4]; 4] = look_at(
-                &vec3(0.0, 0.0, 0.0), // light's position
-                dir,
-                up,
-            )
-            .into();
-            let view_buffer = bufferize_data(queue.clone(), view_matrix);
-            let set = pds_for_buffers(pipeline.clone(), &[view_buffer], 2).unwrap();
+            let light_pos = vec3(0, 0, 0);
+            let view_data: Matrix4 = look_at(&light_pos, &(light_pos + dir), up).into();
 
-            // all sets for the dragon we're currently creating
-            // we take the model set from the base dragon
-            // (set 0)
-            let custom_sets = vec![base_object.custom_sets[0].clone(), proj_set.clone(), set];
-
-            // dynamic state for the current dragon, represents which part
+            // dynamic state for the current cubemap face, represents which part
             // of the patched texture we draw to
-            let origin = [patch_pos[0] * PATCH_DIMS[0], patch_pos[1] * PATCH_DIMS[1]];
-            let dynamic_state = dynamic_state_for_bounds(origin, PATCH_DIMS);
+            let margin = 0.0;
+            let origin = [
+                patch_pos[0] * PATCH_DIMS[0] + margin,
+                patch_pos[1] * PATCH_DIMS[1] + margin,
+            ];
+            let dynamic_state = dynamic_state_for_bounds(
+                origin,
+                [PATCH_DIMS[0] - margin * 2.0, PATCH_DIMS[1] - margin * 2.0],
+            );
 
-            RenderableObject {
-                // model and proj are in set 0 and 1
-                custom_sets,
+            ObjectPrototype {
+                collection: (
+                    (model_data,),
+                    (proj_data,),
+                    (view_data,),
+                    (light_pos,),
+                ),
                 custom_dynamic_state: Some(dynamic_state),
-                ..base_object.clone()
+                ..base_object
             }
+            .build(queue.clone(), rpass.clone())
         })
         .collect()
 }
 
-fn create_projection_set(queue: Queue, pipeline: Pipeline) -> Set {
+fn create_projection_set(queue: Queue, pipeline: Pipeline) -> re::Set {
     let (near, far) = (1.0, 250.0);
     // pi / 2 = 90 deg., 1.0 = aspect ratio
     let proj_data: [[f32; 4]; 4] = perspective(1.0, std::f32::consts::PI / 2.0, near, far).into();
@@ -247,10 +274,12 @@ fn dynamic_state_for_bounds(origin: [f32; 2], dimensions: [f32; 2]) -> DynamicSt
 }
 
 #[allow(dead_code)]
+#[derive(Clone, Copy)]
 struct Light {
     position: [f32; 4],
     strength: [f32; 4],
 }
+impl Data for Light {}
 
 #[derive(Default, Debug, Clone, Copy)]
 struct V2D {

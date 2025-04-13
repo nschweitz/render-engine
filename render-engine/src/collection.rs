@@ -593,8 +593,6 @@ impl SetUpload for (Image, Image, Image) {
     }
 }
 
-// length 4 will be FUN!
-
 pub type Image = Arc<dyn ImageViewAccess + Send + Sync>;
 
 pub trait Data: Send + Sync + Clone + 'static {}

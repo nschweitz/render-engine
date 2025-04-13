@@ -1,12 +1,12 @@
-use render_engine::collection::Data;
+use render_engine::collection::{CollectionData, Data, Set};
 use render_engine::input::{get_elapsed, VirtualKeyCode};
-use render_engine::mesh::PrimitiveTopology;
+use render_engine::mesh::{PrimitiveTopology, Vertex};
 use render_engine::object::{Drawcall, Object, ObjectPrototype};
 use render_engine::render_passes;
 use render_engine::system::{Pass, System};
 use render_engine::utils::Timer;
 use render_engine::window::Window;
-use render_engine::{Format, Image};
+use render_engine::{Format, Image, Queue, RenderPass};
 
 use vulkano::command_buffer::DynamicState;
 use vulkano::pipeline::viewport::Viewport;
@@ -159,7 +159,7 @@ fn main() {
                 ),
                 custom_dynamic_state: None,
             }
-            .build(queue.clone())
+            .build(queue.clone(), render_pass.clone())
         })
         .collect();
 
@@ -169,6 +169,7 @@ fn main() {
     // create fullscreen quad to debug cubemap
     let quad_display = fullscreen_quad(
         queue.clone(),
+        rpass_cubeview.clone(),
         relative_path("shaders/pretty/fullscreen_vert.glsl"),
         relative_path("shaders/pretty/display_cubemap_frag.glsl"),
     );
@@ -176,6 +177,7 @@ fn main() {
     // and to blur shadow map
     let mut quad_blur = fullscreen_quad(
         queue.clone(),
+        rpass_shadow_blur,
         relative_path("shaders/pretty/fullscreen_vert.glsl"),
         relative_path("shaders/pretty/blur_frag.glsl"),
     );
@@ -195,8 +197,7 @@ fn main() {
         // convert_to_shadow_casters adds proper collections
         collection: (),
         custom_dynamic_state: None,
-    }
-    .build(queue.clone());
+    };
 
     let mut depth_prepass_object = ObjectPrototype {
         vs_path: relative_path("shaders/pretty/depth_prepass_vert.glsl"),
@@ -208,7 +209,7 @@ fn main() {
         collection: ((model_data,), (camera_data.clone(),)),
         custom_dynamic_state: None,
     }
-    .build(queue.clone());
+    .build(queue.clone(), rpass_prepass.clone());
 
     // create mesh for light (just a sphere)
     // we need 2 objects: one for the depth prepass and one for the geometry stage
@@ -228,7 +229,7 @@ fn main() {
         collection: ((model_data,), (camera_data.clone(),)),
         custom_dynamic_state: None,
     }
-    .build(queue.clone());
+    .build(queue.clone(), rpass_prepass.clone());
 
     let mut light_object_geo = ObjectPrototype {
         vs_path: relative_path("shaders/pretty/vert.glsl"),
@@ -246,7 +247,7 @@ fn main() {
         ),
         custom_dynamic_state: None,
     }
-    .build(queue.clone());
+    .build(queue.clone(), render_pass.clone());
 
     // create wireframe mesh
     let wireframe_mesh = wireframe(&only_pos_from_ptnt(&merged_mesh));
@@ -263,7 +264,7 @@ fn main() {
         collection: ((model_data,), (camera_data,)),
         custom_dynamic_state: None,
     }
-    .build(queue.clone());
+    .build(queue.clone(), render_pass.clone());
 
     let mut all_objects: HashMap<&str, Vec<Arc<dyn Drawcall>>> = HashMap::new();
 
@@ -283,7 +284,12 @@ fn main() {
         timer_setup.start();
 
         // convert merged mesh into 6 casters, one for each cubemap face
-        let shadow_casters = convert_to_shadow_casters(shadow_cast_base.clone(), light.get_data());
+        let shadow_casters = convert_to_shadow_casters(
+            queue.clone(),
+            rpass_shadow.clone(),
+            shadow_cast_base.clone(),
+            light.get_data()
+        );
         // update camera, but only if we're grabbing the cursor
         if cursor_grabbed {
             camera.update(window.get_frame_info());
@@ -294,8 +300,8 @@ fn main() {
         let light_data = light.get_data();
 
         // update depth prepass objects' collections
-        (depth_prepass_object.collection.1).0 = camera_data.clone();
-        (light_object_prepass.collection.1).0 = camera_data.clone();
+        depth_prepass_object.collection.1.data.0 = camera_data.clone();
+        light_object_prepass.collection.1.data.0 = camera_data.clone();
 
         // the light has moved, we need to update its model matrix
         let light_model_data: Matrix4 = scale(
@@ -303,7 +309,7 @@ fn main() {
             &vec3(0.03, 0.03, 0.03),
         )
         .into();
-        (light_object_prepass.collection.0).0 = light_model_data;
+        light_object_prepass.collection.0.data.0 = light_model_data;
 
         all_objects.insert(
             "depth_prepass",
@@ -459,14 +465,17 @@ fn main() {
             }
         }
 
-        (light_object_geo.collection.0).1 = light_model_data;
+        light_object_geo.collection.0.data.1 = light_model_data;
 
         geo_objects
             .iter_mut()
-            .for_each(|obj| obj.collection.2 = (camera_data.clone(), light_data.clone()));
+            .for_each(|obj| {
+                obj.collection.2.data.0 = camera_data.clone();
+                obj.collection.2.data.1 = light_data.clone();
+            });
 
         if draw_wireframe {
-            (wireframe_object.collection.1).0 = camera_data.clone();
+            wireframe_object.collection.1.data.0 = camera_data.clone();
             // geometry_object_list.push(cur_wireframe_object.clone());
         }
 
@@ -508,7 +517,8 @@ fn main() {
 
         // draw
         timer_draw.start();
-        system.render_to_window(&mut window, all_objects.clone());
+        // FIXME: currently System doesn't know about all_objects, so it doesn't draw anything.
+        system.finish_to_window(&mut window);
         timer_draw.stop();
     }
 
@@ -548,10 +558,12 @@ impl MovingLight {
     }
 }
 
-fn convert_to_shadow_casters(
-    base_object: Object<()>,
+fn convert_to_shadow_casters<V: Vertex>(
+    queue: Queue,
+    render_pass: RenderPass,
+    base_object: ObjectPrototype<V, ()>,
     light_data: Light,
-) -> Vec<Object<((Matrix4,), (Matrix4,), (Matrix4,), (Light,))>> {
+) -> Vec<Object<(Set<(Matrix4,)>, Set<(Matrix4,)>, Set<(Matrix4,)>, Set<(Light,)>)>> {
     // if you want to make point lamps cast shadows, you need shadow cubemaps
     // render-engine doesn't support geometry shaders, so the easiest way to do
     // this is to convert one object into 6 different ones, one for each face of
@@ -612,10 +624,7 @@ fn convert_to_shadow_casters(
                 [PATCH_DIMS[0] - margin * 2.0, PATCH_DIMS[1] - margin * 2.0],
             );
 
-            Object {
-                pipeline_spec: base_object.pipeline_spec.clone(),
-                vbuf: base_object.vbuf.clone(),
-                ibuf: base_object.ibuf.clone(),
+            ObjectPrototype {
                 collection: (
                     (model_data,),
                     (proj_data,),
@@ -623,7 +632,15 @@ fn convert_to_shadow_casters(
                     (light_data.clone(),),
                 ),
                 custom_dynamic_state: Some(dynamic_state),
+
+                vs_path: base_object.vs_path.clone(),
+                fs_path: base_object.fs_path.clone(),
+                fill_type: base_object.fill_type.clone(),
+                read_depth: base_object.read_depth.clone(),
+                write_depth: base_object.write_depth.clone(),
+                mesh: base_object.mesh.clone(),
             }
+            .build(queue.clone(), render_pass.clone())
         })
         .collect()
 }

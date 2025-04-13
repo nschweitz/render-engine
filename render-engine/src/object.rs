@@ -51,6 +51,28 @@ impl<C: Collection> Drawcall for Object<C> {
     }
 }
 
+impl<'a, C: Collection> Drawcall for &'a Object<C> {
+    fn pipe_spec(&self) -> &PipelineSpec {
+        &self.pipeline_spec
+    }
+
+    fn vbuf(&self) -> Arc<dyn BufferAccess + Send + Sync> {
+        self.vbuf.clone()
+    }
+
+    fn ibuf(&self) -> Arc<ImmutableBuffer<[u32]>> {
+        self.ibuf.clone()
+    }
+
+    fn collection(&self) -> Vec<Arc<dyn DescriptorSet + Send + Sync>> {
+        self.collection.get()
+    }
+
+    fn custom_dynstate(&self) -> Option<DynamicState> {
+        self.custom_dynamic_state.clone()
+    }
+}
+
 #[derive(Clone)]
 pub struct ObjectPrototype<V: Vertex, D: CollectionData> {
     pub vs_path: PathBuf,
