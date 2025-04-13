@@ -229,6 +229,7 @@ impl<T1: SetUpload, T2: SetUpload, T3: SetUpload, T4: SetUpload> CollectionData
 /*
 Set
  */
+#[derive(Clone)]
 pub struct Set<T: SetUpload> {
     pub data: T,
     cached: Arc<dyn DescriptorSet + Send + Sync>,
