@@ -159,7 +159,7 @@ fn main() {
                 ),
                 custom_dynamic_state: None,
             }
-            .build(queue.clone(), render_pass.clone())
+            .build(queue.clone(), render_pass.clone(), 1)
         })
         .collect();
 
@@ -209,7 +209,7 @@ fn main() {
         collection: ((model_data,), (camera_data.clone(),)),
         custom_dynamic_state: None,
     }
-    .build(queue.clone(), rpass_prepass.clone());
+    .build(queue.clone(), rpass_prepass.clone(), 0);
 
     // create mesh for light (just a sphere)
     // we need 2 objects: one for the depth prepass and one for the geometry stage
@@ -229,7 +229,7 @@ fn main() {
         collection: ((model_data,), (camera_data.clone(),)),
         custom_dynamic_state: None,
     }
-    .build(queue.clone(), rpass_prepass.clone());
+    .build(queue.clone(), rpass_prepass.clone(), 0);
 
     let mut light_object_geo = ObjectPrototype {
         vs_path: relative_path("shaders/pretty/vert.glsl"),
@@ -247,7 +247,7 @@ fn main() {
         ),
         custom_dynamic_state: None,
     }
-    .build(queue.clone(), render_pass.clone());
+    .build(queue.clone(), render_pass.clone(), 1);
 
     // create wireframe mesh
     let wireframe_mesh = wireframe(&only_pos_from_ptnt(&merged_mesh));
@@ -264,7 +264,7 @@ fn main() {
         collection: ((model_data,), (camera_data,)),
         custom_dynamic_state: None,
     }
-    .build(queue.clone(), render_pass.clone());
+    .build(queue.clone(), render_pass.clone(), 1);
 
     let mut all_objects: HashMap<&str, Vec<Arc<dyn Drawcall>>> = HashMap::new();
 
@@ -640,7 +640,7 @@ fn convert_to_shadow_casters<V: Vertex>(
                 write_depth: base_object.write_depth.clone(),
                 mesh: base_object.mesh.clone(),
             }
-            .build(queue.clone(), render_pass.clone())
+            .build(queue.clone(), render_pass.clone(), 1)
         })
         .collect()
 }

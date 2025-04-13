@@ -90,6 +90,7 @@ impl<V: Vertex, D: CollectionData + 'static> ObjectPrototype<V, D> {
         self,
         queue: Arc<Queue>,
         render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
+        set_start_idx: usize,
     ) -> Object<D::Sets> {
         let vbuf = self.mesh.get_vbuf(queue.clone());
         let ibuf = self.mesh.get_ibuf(queue.clone());
@@ -104,8 +105,8 @@ impl<V: Vertex, D: CollectionData + 'static> ObjectPrototype<V, D> {
         };
         let pipeline = pipeline_spec.concrete(queue.device().clone(), render_pass);
 
-        // TODO: offset is not always 0
-        let collection = self.collection.create_sets(queue.device().clone(), pipeline, 0);
+        let collection = self.collection.create_sets(queue.device().clone(), pipeline,
+            set_start_idx);
 
         Object {
             pipeline_spec,
