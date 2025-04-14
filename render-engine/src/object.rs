@@ -103,10 +103,8 @@ impl<V: Vertex, D: CollectionData + 'static> ObjectPrototype<V, D> {
             write_depth: self.write_depth,
             vtype: VertexType::<V>::new(),
         };
-        println!("Before pipeline");
         let pipeline = pipeline_cache.get(&pipeline_spec);
 
-        println!("Before create_sets");
         let collection = self.collection.create_sets(queue.device().clone(), pipeline,
             set_start_idx);
 
@@ -136,10 +134,9 @@ impl<V: Vertex, D: CollectionData + 'static> ObjectPrototype<V, D> {
             write_depth: self.write_depth,
             vtype: VertexType::<V>::new(),
         };
-        println!("Before pipeline");
+
         let pipeline = pipeline_spec.concrete(queue.device().clone(), render_pass);
 
-        println!("Before create_sets");
         let collection = self.collection.create_sets(queue.device().clone(), pipeline,
             set_start_idx);
 

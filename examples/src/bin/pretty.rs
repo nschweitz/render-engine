@@ -107,7 +107,7 @@ fn main() {
             },
         ],
         custom_images,
-        "geometry",
+        "color",
     );
 
     let quad_debug = fullscreen_quad(
@@ -161,7 +161,6 @@ fn main() {
         .into_iter()
         .enumerate()
         .map(|(idx, mesh)| {
-            println!("Converting model {}\n", idx);
             let model = &models[idx];
 
             let mat_idx = if let Some(idx) = model.mesh.material_id {
@@ -172,7 +171,6 @@ fn main() {
             };
             let textures = textures[mat_idx].clone();
 
-            println!("before build");
             let object = ObjectPrototype {
                 vs_path: relative_path("shaders/pretty/vert.glsl"),
                 fs_path: relative_path("shaders/pretty/all_frag.glsl"),
@@ -188,7 +186,6 @@ fn main() {
                 custom_dynamic_state: None,
             }
             .build(queue.clone(), &mut pipeline_cache_main, 1);
-            println!("after build");
 
             object
         })

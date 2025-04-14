@@ -63,14 +63,12 @@ impl PipelineCache {
             if c_pipe.spec == *spec {
                 pipeline = Some(c_pipe.pipeline.clone());
                 self.stats.hits += 1;
-                println!("Pipeline cache hit");
             }
         }
 
         match pipeline {
             Some(pipeline) => pipeline,
             None => {
-                println!("Pipeline cache miss");
                 self.stats.misses += 1;
                 let start_time = std::time::Instant::now();
 
