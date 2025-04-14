@@ -140,5 +140,4 @@ void main() {
   vec3 corrected = pow(curr, vec3(1/2.2));
 
   f_color = vec4(corrected, 1.0);
-  //f_color = vec4(1.0, 0.0, 1.0, 1.0);
 }

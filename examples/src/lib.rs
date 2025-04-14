@@ -300,7 +300,7 @@ impl FlyCamera {
 }
 
 #[allow(dead_code)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CameraData {
     view: CameraMatrix,
     proj: CameraMatrix,

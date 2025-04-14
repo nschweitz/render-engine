@@ -98,23 +98,9 @@ fn main() {
                 images_needed_tags: vec!["shadow_map_blur"],
                 render_pass: render_pass.clone(),
             },
-            // test
-            Pass {
-                name: "test",
-                images_created_tags: vec!["test"],
-                images_needed_tags: vec![],
-                render_pass: rpass_test.clone(),
-            },
         ],
         custom_images,
         "color",
-    );
-
-    let quad_debug = fullscreen_quad(
-        queue.clone(),
-        rpass_cubeview.clone(),
-        relative_path("shaders/pretty/debug_vert.glsl"),
-        relative_path("shaders/pretty/debug_frag.glsl"),
     );
 
     window.set_render_pass(render_pass.clone());
@@ -305,6 +291,7 @@ fn main() {
         timer_setup.start();
 
         // convert merged mesh into 6 casters, one for each cubemap face
+        // Have to redo every frame because the light moves
         let shadow_casters = convert_to_shadow_casters(
             queue.clone(),
             shadow_cast_base.clone(),
@@ -322,7 +309,10 @@ fn main() {
 
         // update depth prepass objects' collections
         depth_prepass_object.collection.1.data.0 = camera_data.clone();
+        depth_prepass_object.collection.1.upload(device.clone());
+
         light_object_prepass.collection.1.data.0 = camera_data.clone();
+        light_object_prepass.collection.1.upload(device.clone());
 
         // the light has moved, we need to update its model matrix
         let light_model_data: Matrix4 = scale(
@@ -331,138 +321,7 @@ fn main() {
         )
         .into();
         light_object_prepass.collection.0.data.0 = light_model_data;
-
-        // handle input
-        if window
-            .get_frame_info()
-            .keydowns
-            .contains(&VirtualKeyCode::C)
-            || update_view
-        {
-            view_mode += 1;
-            update_view = false;
-
-            match view_mode {
-                0 => {
-                    // default: everything enabled
-                    system.output_tag = "color";
-                }
-                1 => {
-                    // pure white
-                    geo_objects.iter_mut().for_each(|obj| {
-                        obj.pipeline_spec.fs_path = relative_path("shaders/pretty/white_frag.glsl");
-                    });
-                    system.output_tag = "color";
-                }
-                2 => {
-                    // depth only
-                    system.output_tag = "depth_view";
-                }
-                3 => {
-                    // diffuse_only
-                    geo_objects.iter_mut().for_each(|obj| {
-                        obj.pipeline_spec.fs_path =
-                            relative_path("shaders/pretty/diffuse_only_frag.glsl");
-                    });
-                    system.output_tag = "color";
-                }
-                4 => {
-                    // diffuse and light direction
-                    geo_objects.iter_mut().for_each(|obj| {
-                        obj.pipeline_spec.fs_path =
-                            relative_path("shaders/pretty/diffuse_and_light_frag.glsl");
-                    });
-                    system.output_tag = "color";
-                }
-                5 => {
-                    // diffuse and light distance + direction
-                    geo_objects.iter_mut().for_each(|obj| {
-                        obj.pipeline_spec.fs_path =
-                            relative_path("shaders/pretty/diffuse_light_distance_frag.glsl");
-                    });
-                    system.output_tag = "color";
-                }
-                6 => {
-                    // diffuse and specular
-                    geo_objects.iter_mut().for_each(|obj| {
-                        obj.pipeline_spec.fs_path =
-                            relative_path("shaders/pretty/diffuse_and_spec.glsl");
-                    });
-                    system.output_tag = "color";
-                }
-                7 => {
-                    // diffuse, specular, normal mapping
-                    geo_objects.iter_mut().for_each(|obj| {
-                        obj.pipeline_spec.fs_path =
-                            relative_path("shaders/pretty/diffuse_spec_normal.glsl");
-                    });
-                    system.output_tag = "color";
-                }
-                8 => {
-                    // shadows only
-                    geo_objects.iter_mut().for_each(|obj| {
-                        obj.pipeline_spec.fs_path =
-                            relative_path("shaders/pretty/shadows_only.glsl");
-                    });
-                    system.output_tag = "color";
-                }
-                9 => {
-                    // diffuse + spec + normal mapping + shadows
-                    geo_objects.iter_mut().for_each(|obj| {
-                        obj.pipeline_spec.fs_path =
-                            relative_path("shaders/pretty/shadows_and_color.glsl");
-                    });
-                    system.output_tag = "color";
-                }
-                10 => {
-                    // diffuse + spec + normal mapping + shadows + tonemapping
-                    geo_objects.iter_mut().for_each(|obj| {
-                        obj.pipeline_spec.fs_path = relative_path("shaders/pretty/all_frag.glsl");
-                    });
-                    system.output_tag = "color";
-                }
-                11 => {
-                    // specular only
-                    geo_objects.iter_mut().for_each(|obj| {
-                        obj.pipeline_spec.fs_path =
-                            relative_path("shaders/pretty/specular_only.glsl");
-                    });
-                    system.output_tag = "color";
-                }
-                12 => {
-                    // specular only, low shininess
-                    geo_objects.iter_mut().for_each(|obj| {
-                        obj.pipeline_spec.fs_path =
-                            relative_path("shaders/pretty/specular_only_2.glsl");
-                    });
-                    system.output_tag = "color";
-                }
-                13 => {
-                    // normals
-                    geo_objects.iter_mut().for_each(|obj| {
-                        obj.pipeline_spec.fs_path =
-                            relative_path("shaders/pretty/normals_only.glsl");
-                    });
-                    system.output_tag = "color";
-                }
-                _ => {
-                    geo_objects.iter_mut().for_each(|obj| {
-                        obj.pipeline_spec.fs_path = relative_path("shaders/pretty/all_frag.glsl");
-                    });
-                    view_mode = 0;
-                    system.output_tag = "color";
-                }
-            }
-        }
-
-        if window
-            .get_frame_info()
-            .keydowns
-            .contains(&VirtualKeyCode::V)
-        {
-            view_mode -= 2;
-            update_view = true;
-        }
+        light_object_prepass.collection.0.upload(device.clone());
 
         if window
             .get_frame_info()
@@ -480,25 +339,14 @@ fn main() {
         }
 
         light_object_geo.collection.0.data.1 = light_model_data;
-
-        if draw_wireframe {
-            wireframe_object.collection.1.data.0 = camera_data.clone();
-            // geometry_object_list.push(cur_wireframe_object.clone());
-        }
-
-        if window
-            .get_frame_info()
-            .keydowns
-            .contains(&VirtualKeyCode::R)
-        {
-            draw_wireframe = !draw_wireframe;
-        }
+        light_object_geo.collection.0.upload(device.clone());
 
         geo_objects
             .iter_mut()
             .for_each(|obj| {
                 obj.collection.2.data.0 = camera_data.clone();
                 obj.collection.2.data.1 = light_data.clone();
+                obj.collection.2.upload(device.clone());
             });
 
         // start drawing!
@@ -531,15 +379,6 @@ fn main() {
         for geo_object in geo_objects.iter() {
             system.add_object(&geo_object);
         }
-
-        system.next_pass();
-
-        system.add_object(&quad_debug);
-
-        /*
-        let mut cur_wireframe_object = wireframe_object.clone();
-        cur_wireframe_object.custom_sets.push(camera_set.clone());
-        */
 
         timer_setup.stop();
 
