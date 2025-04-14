@@ -107,7 +107,7 @@ fn main() {
             },
         ],
         custom_images,
-        "test",
+        "color",
     );
 
     let quad_debug = fullscreen_quad(
@@ -307,7 +307,6 @@ fn main() {
         // convert merged mesh into 6 casters, one for each cubemap face
         let shadow_casters = convert_to_shadow_casters(
             queue.clone(),
-            rpass_shadow.clone(),
             shadow_cast_base.clone(),
             light.get_data(),
             &mut pipeline_cache_shadow
@@ -593,7 +592,6 @@ impl MovingLight {
 
 fn convert_to_shadow_casters<V: Vertex>(
     queue: Queue,
-    render_pass: RenderPass,
     base_object: ObjectPrototype<V, ()>,
     light_data: Light,
     pipeline_cache: &mut PipelineCache,
@@ -674,7 +672,7 @@ fn convert_to_shadow_casters<V: Vertex>(
                 write_depth: base_object.write_depth.clone(),
                 mesh: base_object.mesh.clone(),
             }
-            .build(queue.clone(), &mut pipeline_cache, 0)
+            .build(queue.clone(), pipeline_cache, 0)
         })
         .collect()
 }
