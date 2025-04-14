@@ -115,8 +115,7 @@ fn main() {
         rpass_cubeview.clone(),
         relative_path("shaders/pretty/debug_vert.glsl"),
         relative_path("shaders/pretty/debug_frag.glsl"),
-    )
-    .build_direct(queue.clone(), rpass_cubeview.clone(), 0);
+    );
 
     window.set_render_pass(render_pass.clone());
 
@@ -204,8 +203,7 @@ fn main() {
         rpass_cubeview.clone(),
         relative_path("shaders/pretty/fullscreen_vert.glsl"),
         relative_path("shaders/pretty/display_cubemap_frag.glsl"),
-    )
-    .build_direct(queue.clone(), rpass_cubeview.clone(), 0);
+    );
 
     // and to blur shadow map
     let mut quad_blur = fullscreen_quad(
@@ -213,8 +211,7 @@ fn main() {
         rpass_shadow_blur.clone(),
         relative_path("shaders/pretty/fullscreen_vert.glsl"),
         relative_path("shaders/pretty/blur_frag.glsl"),
-    )
-    .build_direct(queue.clone(), rpass_shadow_blur.clone(), 0);
+    );
     quad_blur.pipeline_spec.write_depth = true;
 
     let shadow_cast_base = ObjectPrototype {

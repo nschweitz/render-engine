@@ -212,7 +212,7 @@ pub fn fullscreen_quad(queue: Queue, render_pass: RenderPass, vs_path: PathBuf, 
         collection: (),
         custom_dynamic_state: None,
     }
-    .build(queue, render_pass, 0)
+    .build_direct(queue, render_pass, 0)
 }
 
 pub fn wireframe(mesh: &Mesh<VPos>) -> Mesh<VPos> {
