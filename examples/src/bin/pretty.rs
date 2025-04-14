@@ -40,7 +40,6 @@ fn main() {
     .unwrap();
     let shadow_blur: Image = vulkano::image::AttachmentImage::sampled(
         device.clone(),
-        // SHADOW_MAP_DIMS,
         SHADOW_MAP_DIMS,
         Format::D32Sfloat,
     )
@@ -88,7 +87,7 @@ fn main() {
             Pass {
                 name: "depth_viewer",
                 images_created_tags: vec!["depth_view"],
-                images_needed_tags: vec!["depth_prepass"],
+                images_needed_tags: vec!["depth_prepass", "shadow_map_blur"],
                 render_pass: rpass_cubeview.clone(),
             },
             // final pass
@@ -189,12 +188,18 @@ fn main() {
     );
 
     // and to blur shadow map
+    // if we don't add the dynstate here, it would get taken from the screen dims, which is wrong.
+    let dynamic_state_blur = dynamic_state_for_bounds(
+        [0.0, 0.0],
+        [SHADOW_MAP_DIMS[0] as f32, SHADOW_MAP_DIMS[1] as f32],
+    );
     let mut quad_blur = fullscreen_quad(
         queue.clone(),
         rpass_shadow_blur.clone(),
         relative_path("shaders/pretty/fullscreen_vert.glsl"),
         relative_path("shaders/pretty/blur_frag.glsl"),
     );
+    quad_blur.custom_dynamic_state = Some(dynamic_state_blur);
     quad_blur.pipeline_spec.write_depth = true;
 
     let shadow_cast_base = ObjectPrototype {
@@ -287,7 +292,6 @@ fn main() {
     let mut cursor_grabbed = true;
 
     while !window.update() {
-        println!("Draw frame!\n");
         timer_setup.start();
 
         // convert merged mesh into 6 casters, one for each cubemap face
