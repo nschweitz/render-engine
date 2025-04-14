@@ -107,7 +107,7 @@ fn main() {
             },
         ],
         custom_images,
-        "color",
+        "test",
     );
 
     let quad_debug = fullscreen_quad(
