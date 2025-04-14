@@ -56,13 +56,9 @@ fn main() {
     let rpass_prepass = render_passes::only_depth(device.clone());
     let rpass_test = render_passes::basic(device.clone());
     
-    // Create pipeline caches for each render pass
+    // Create pipeline caches
     let mut pipeline_cache_main = PipelineCache::new(device.clone(), render_pass.clone());
     let mut pipeline_cache_shadow = PipelineCache::new(device.clone(), rpass_shadow.clone());
-    let mut pipeline_cache_shadow_blur = PipelineCache::new(device.clone(), rpass_shadow_blur.clone());
-    let mut pipeline_cache_cubeview = PipelineCache::new(device.clone(), rpass_cubeview.clone());
-    let mut pipeline_cache_prepass = PipelineCache::new(device.clone(), rpass_prepass.clone());
-    let mut pipeline_cache_test = PipelineCache::new(device.clone(), rpass_test.clone());
 
     let mut system = System::new(
         queue.clone(),
@@ -192,7 +188,7 @@ fn main() {
                 ),
                 custom_dynamic_state: None,
             }
-            .build(queue.clone(), render_pass.clone(), &mut pipeline_cache_main, 1);
+            .build(queue.clone(), &mut pipeline_cache_main, 1);
             println!("after build");
 
             object
@@ -243,7 +239,7 @@ fn main() {
         collection: ((model_data,), (camera_data.clone(),)),
         custom_dynamic_state: None,
     }
-    .build(queue.clone(), rpass_prepass.clone(), &mut pipeline_cache_prepass, 0);
+    .build_direct(queue.clone(), rpass_prepass.clone(), 0);
 
     // create mesh for light (just a sphere)
     // we need 2 objects: one for the depth prepass and one for the geometry stage
@@ -264,7 +260,7 @@ fn main() {
         collection: ((model_data,), (camera_data.clone(),)),
         custom_dynamic_state: None,
     }
-    .build(queue.clone(), rpass_prepass.clone(), &mut pipeline_cache_prepass, 0);
+    .build_direct(queue.clone(), rpass_prepass.clone(), 0);
 
     let mut light_object_geo = ObjectPrototype {
         vs_path: relative_path("shaders/pretty/vert.glsl"),
@@ -282,7 +278,7 @@ fn main() {
         ),
         custom_dynamic_state: None,
     }
-    .build(queue.clone(), render_pass.clone(), &mut pipeline_cache_main, 1);
+    .build(queue.clone(), &mut pipeline_cache_main, 1);
 
     // create wireframe mesh
     let wireframe_mesh = wireframe(&only_pos_from_ptnt(&merged_mesh));
@@ -299,7 +295,7 @@ fn main() {
         collection: ((model_data,), (camera_data,)),
         custom_dynamic_state: None,
     }
-    .build(queue.clone(), render_pass.clone(), &mut pipeline_cache_main, 1);
+    .build(queue.clone(), &mut pipeline_cache_main, 1);
 
     // used in main loop
     let mut timer_setup = Timer::new("Setup time");
@@ -569,7 +565,6 @@ fn main() {
     println!("\nPipeline cache stats:");
     pipeline_cache_main.print_stats();
     pipeline_cache_shadow.print_stats();
-    pipeline_cache_prepass.print_stats();
 }
 
 #[allow(dead_code)]
@@ -685,7 +680,7 @@ fn convert_to_shadow_casters<V: Vertex>(
                 write_depth: base_object.write_depth.clone(),
                 mesh: base_object.mesh.clone(),
             }
-            .build(queue.clone(), render_pass.clone(), &mut pipeline_cache, 0)
+            .build(queue.clone(), &mut pipeline_cache, 0)
         })
         .collect()
 }

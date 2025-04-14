@@ -89,7 +89,6 @@ impl<V: Vertex, D: CollectionData + 'static> ObjectPrototype<V, D> {
     pub fn build(
         self,
         queue: Arc<Queue>,
-        render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
         pipeline_cache: &mut PipelineCache,
         set_start_idx: usize,
     ) -> Object<D::Sets> {
