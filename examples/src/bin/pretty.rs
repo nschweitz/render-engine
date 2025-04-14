@@ -53,7 +53,6 @@ fn main() {
     let rpass_shadow_blur = render_passes::only_depth(device.clone());
     let rpass_cubeview = render_passes::basic(device.clone());
     let rpass_prepass = render_passes::only_depth(device.clone());
-    let rpass_test = render_passes::basic(device.clone());
 
     let mut system = System::new(
         queue.clone(),
@@ -93,16 +92,6 @@ fn main() {
                 images_needed_tags: vec!["shadow_map_blur"],
                 render_pass: render_pass.clone(),
             },
-
-            /*
-            // Why it broken
-            Pass {
-                name: "test",
-                images_created_tags: vec!["test"],
-                images_needed_tags: vec![],
-                render_pass: rpass_test.clone(),
-            },
-            */
         ],
         custom_images,
         "color",
@@ -115,8 +104,7 @@ fn main() {
         relative_path("shaders/pretty/debug_frag.glsl"),
     );
 
-    //window.set_render_pass(render_pass.clone());
-    window.set_render_pass(rpass_test.clone());
+    window.set_render_pass(render_pass.clone());
 
     // initialize camera
     let mut camera = FlyCamera::default();
@@ -504,7 +492,6 @@ fn main() {
         system.start_window(&mut window);
 
         // shadow
-        /*
         for shadow_caster in shadow_casters.iter() {
             system.add_object(shadow_caster);
         }
@@ -531,14 +518,11 @@ fn main() {
         for geo_object in geo_objects.iter() {
             system.add_object(&geo_object);
         }
-        */
 
         /*
         let mut cur_wireframe_object = wireframe_object.clone();
         cur_wireframe_object.custom_sets.push(camera_set.clone());
         */
-
-        system.add_object(&quad_debug);
 
         timer_setup.stop();
 
@@ -666,7 +650,7 @@ fn convert_to_shadow_casters<V: Vertex>(
                 write_depth: base_object.write_depth.clone(),
                 mesh: base_object.mesh.clone(),
             }
-            .build(queue.clone(), render_pass.clone(), 1)
+            .build(queue.clone(), render_pass.clone(), 0)
         })
         .collect()
 }
