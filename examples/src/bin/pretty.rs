@@ -53,6 +53,7 @@ fn main() {
     let rpass_shadow_blur = render_passes::only_depth(device.clone());
     let rpass_cubeview = render_passes::basic(device.clone());
     let rpass_prepass = render_passes::only_depth(device.clone());
+    let rpass_test = render_passes::basic(device.clone());
 
     let mut system = System::new(
         queue.clone(),
@@ -92,15 +93,22 @@ fn main() {
                 images_needed_tags: vec!["shadow_map_blur"],
                 render_pass: render_pass.clone(),
             },
+            // test
+            Pass {
+                name: "test",
+                images_created_tags: vec!["test"],
+                images_needed_tags: vec![],
+                render_pass: rpass_test.clone(),
+            },
         ],
         custom_images,
-        "color",
+        "geometry",
     );
 
     let quad_debug = fullscreen_quad(
         queue.clone(),
         rpass_cubeview.clone(),
-        relative_path("shaders/pretty/fullscreen_vert.glsl"),
+        relative_path("shaders/pretty/debug_vert.glsl"),
         relative_path("shaders/pretty/debug_frag.glsl"),
     );
 
@@ -142,7 +150,6 @@ fn main() {
     // create objects for the geometry pass
     let mut geo_objects: Vec<Object<_>> = meshes
         .iter()
-        .take(1)
         .enumerate()
         .map(|(idx, mesh)| {
             println!("Converting model {}\n", idx);
@@ -518,6 +525,10 @@ fn main() {
         for geo_object in geo_objects.iter() {
             system.add_object(&geo_object);
         }
+
+        system.next_pass();
+
+        system.add_object(&quad_debug);
 
         /*
         let mut cur_wireframe_object = wireframe_object.clone();
