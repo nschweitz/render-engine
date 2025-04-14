@@ -309,7 +309,8 @@ fn main() {
             queue.clone(),
             rpass_shadow.clone(),
             shadow_cast_base.clone(),
-            light.get_data()
+            light.get_data(),
+            &mut pipeline_cache_shadow
         );
         // update camera, but only if we're grabbing the cursor
         if cursor_grabbed {
@@ -595,9 +596,8 @@ fn convert_to_shadow_casters<V: Vertex>(
     render_pass: RenderPass,
     base_object: ObjectPrototype<V, ()>,
     light_data: Light,
+    pipeline_cache: &mut PipelineCache,
 ) -> Vec<Object<(Set<(Matrix4,)>, Set<(Matrix4,)>, Set<(Matrix4,)>, Set<(Light,)>)>> {
-    // Create a pipeline cache for shadow casters
-    let mut pipeline_cache = PipelineCache::new(queue.device().clone(), render_pass.clone());
     // if you want to make point lamps cast shadows, you need shadow cubemaps
     // render-engine doesn't support geometry shaders, so the easiest way to do
     // this is to convert one object into 6 different ones, one for each face of
