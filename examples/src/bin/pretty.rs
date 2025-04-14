@@ -17,8 +17,8 @@ use std::sync::Arc;
 use nalgebra_glm::*;
 
 use tests_render_engine::mesh::{
-    add_tangents_multi, convert_meshes, fullscreen_quad, load_obj, load_textures, merge, only_pos,
-    only_pos_from_ptnt, wireframe,
+    add_tangents, add_tangents_multi, convert_meshes, fullscreen_quad, load_obj, load_textures,
+    merge, only_pos, only_pos_from_ptnt, wireframe,
 };
 use tests_render_engine::{relative_path, FlyCamera, Matrix4};
 
@@ -53,10 +53,12 @@ fn main() {
     let rpass_shadow_blur = render_passes::only_depth(device.clone());
     let rpass_cubeview = render_passes::basic(device.clone());
     let rpass_prepass = render_passes::only_depth(device.clone());
+    let rpass_test = render_passes::basic(device.clone());
 
     let mut system = System::new(
         queue.clone(),
         vec![
+            /*
             // renders to shadow cubemap
             Pass {
                 name: "shadow",
@@ -92,12 +94,29 @@ fn main() {
                 images_needed_tags: vec!["shadow_map_blur"],
                 render_pass: render_pass.clone(),
             },
+            */
+
+            // Why it broken
+            Pass {
+                name: "test",
+                images_created_tags: vec!["test"],
+                images_needed_tags: vec![],
+                render_pass: rpass_test.clone(),
+            },
         ],
         custom_images,
-        "color",
+        "test",
     );
 
-    window.set_render_pass(render_pass.clone());
+    let quad_debug = fullscreen_quad(
+        queue.clone(),
+        rpass_cubeview.clone(),
+        relative_path("shaders/pretty/fullscreen_vert.glsl"),
+        relative_path("shaders/pretty/debug_frag.glsl"),
+    );
+
+    //window.set_render_pass(render_pass.clone());
+    window.set_render_pass(rpass_test.clone());
 
     // initialize camera
     let mut camera = FlyCamera::default();
@@ -130,11 +149,15 @@ fn main() {
     let meshes = add_tangents_multi(&convert_meshes(&models));
     let textures = load_textures(queue.clone(), &relative_path("meshes/sponza/"), &materials);
 
+    println!("Total meshes: {}", meshes.len());
+
     // create objects for the geometry pass
     let mut geo_objects: Vec<Object<_>> = meshes
         .iter()
+        .take(1)
         .enumerate()
         .map(|(idx, mesh)| {
+            println!("Converting model {}\n", idx);
             let model = &models[idx];
 
             let mat_idx = if let Some(idx) = model.mesh.material_id {
@@ -216,7 +239,8 @@ fn main() {
     let light_mesh = {
         let (models, _materials) =
             load_obj(&relative_path("meshes/sphere.obj")).expect("Couldn't load OBJ file");
-        convert_meshes(&[models[0].clone()]).remove(0)
+        let mesh = convert_meshes(&[models[0].clone()]).remove(0);
+        add_tangents(&mesh)
     };
 
     let mut light_object_prepass = ObjectPrototype {
@@ -225,7 +249,7 @@ fn main() {
         fill_type: PrimitiveTopology::TriangleList,
         read_depth: true,
         write_depth: true,
-        mesh: only_pos(&light_mesh),
+        mesh: light_mesh.clone(),
         collection: ((model_data,), (camera_data.clone(),)),
         custom_dynamic_state: None,
     }
@@ -266,14 +290,9 @@ fn main() {
     }
     .build(queue.clone(), render_pass.clone(), 1);
 
-    let mut all_objects: HashMap<&str, Vec<Arc<dyn Drawcall>>> = HashMap::new();
-
     // used in main loop
     let mut timer_setup = Timer::new("Setup time");
     let mut timer_draw = Timer::new("Overall draw time");
-
-    all_objects.insert("depth_viewer", vec![Arc::new(quad_display)]);
-    all_objects.insert("shadow_blur", vec![Arc::new(quad_blur)]);
 
     let mut view_mode: i32 = 0;
     let mut update_view = false;
@@ -281,6 +300,7 @@ fn main() {
     let mut cursor_grabbed = true;
 
     while !window.update() {
+        println!("Draw frame!\n");
         timer_setup.start();
 
         // convert merged mesh into 6 casters, one for each cubemap face
@@ -311,14 +331,7 @@ fn main() {
         .into();
         light_object_prepass.collection.0.data.0 = light_model_data;
 
-        all_objects.insert(
-            "depth_prepass",
-            vec![
-                Arc::new(depth_prepass_object.clone()),
-                Arc::new(light_object_prepass.clone()),
-            ],
-        );
-
+        // handle input
         if window
             .get_frame_info()
             .keydowns
@@ -467,13 +480,6 @@ fn main() {
 
         light_object_geo.collection.0.data.1 = light_model_data;
 
-        geo_objects
-            .iter_mut()
-            .for_each(|obj| {
-                obj.collection.2.data.0 = camera_data.clone();
-                obj.collection.2.data.1 = light_data.clone();
-            });
-
         if draw_wireframe {
             wireframe_object.collection.1.data.0 = camera_data.clone();
             // geometry_object_list.push(cur_wireframe_object.clone());
@@ -487,37 +493,57 @@ fn main() {
             draw_wireframe = !draw_wireframe;
         }
 
-        all_objects.insert(
-            "geometry",
-            geo_objects
-                .iter()
-                .map(|obj| {
-                    let dc: Arc<dyn Drawcall> = Arc::new(obj.clone());
-                    dc
-                })
-                .collect(),
-        );
-        all_objects.insert(
-            "shadow",
-            shadow_casters
-                .iter()
-                .map(|obj| {
-                    let dc: Arc<dyn Drawcall> = Arc::new(obj.clone());
-                    dc
-                })
-                .collect(),
-        );
+        geo_objects
+            .iter_mut()
+            .for_each(|obj| {
+                obj.collection.2.data.0 = camera_data.clone();
+                obj.collection.2.data.1 = light_data.clone();
+            });
+
+        // start drawing!
+        system.start_window(&mut window);
+
+        // shadow
+        /*
+        for shadow_caster in shadow_casters.iter() {
+            system.add_object(shadow_caster);
+        }
+
+        system.next_pass();
+
+        // shadow_blur
+        system.add_object(&quad_blur);
+
+        system.next_pass();
+
+        // depth_prepass
+        system.add_object(&depth_prepass_object);
+        system.add_object(&light_object_prepass);
+
+        system.next_pass();
+
+        // depth_viewer
+        system.add_object(&quad_display);
+
+        system.next_pass();
+
+        // geometry
+        for geo_object in geo_objects.iter() {
+            system.add_object(&geo_object);
+        }
+        */
 
         /*
         let mut cur_wireframe_object = wireframe_object.clone();
         cur_wireframe_object.custom_sets.push(camera_set.clone());
         */
 
+        system.add_object(&quad_debug);
+
         timer_setup.stop();
 
         // draw
         timer_draw.start();
-        // FIXME: currently System doesn't know about all_objects, so it doesn't draw anything.
         system.finish_to_window(&mut window);
         timer_draw.stop();
     }
