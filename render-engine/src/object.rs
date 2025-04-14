@@ -7,7 +7,7 @@ use vulkano::pipeline::input_assembly::PrimitiveTopology;
 
 use crate::collection::{Collection, CollectionData};
 use crate::mesh::{Mesh, MeshAbstract, Vertex, VertexType};
-use crate::pipeline_cache::PipelineSpec;
+use crate::pipeline_cache::{PipelineCache, PipelineSpec};
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -87,6 +87,40 @@ pub struct ObjectPrototype<V: Vertex, D: CollectionData> {
 
 impl<V: Vertex, D: CollectionData + 'static> ObjectPrototype<V, D> {
     pub fn build(
+        self,
+        queue: Arc<Queue>,
+        render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
+        pipeline_cache: &mut PipelineCache,
+        set_start_idx: usize,
+    ) -> Object<D::Sets> {
+        let vbuf = self.mesh.get_vbuf(queue.clone());
+        let ibuf = self.mesh.get_ibuf(queue.clone());
+
+        let pipeline_spec = PipelineSpec {
+            vs_path: self.vs_path,
+            fs_path: self.fs_path,
+            fill_type: self.fill_type,
+            read_depth: self.read_depth,
+            write_depth: self.write_depth,
+            vtype: VertexType::<V>::new(),
+        };
+        println!("Before pipeline");
+        let pipeline = pipeline_cache.get(&pipeline_spec);
+
+        println!("Before create_sets");
+        let collection = self.collection.create_sets(queue.device().clone(), pipeline,
+            set_start_idx);
+
+        Object {
+            pipeline_spec,
+            vbuf,
+            ibuf,
+            collection,
+            custom_dynamic_state: self.custom_dynamic_state,
+        }
+    }
+    
+    pub fn build_direct(
         self,
         queue: Arc<Queue>,
         render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,

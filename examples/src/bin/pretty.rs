@@ -2,6 +2,7 @@ use render_engine::collection::{CollectionData, Data, Set};
 use render_engine::input::{get_elapsed, VirtualKeyCode};
 use render_engine::mesh::{PrimitiveTopology, Vertex};
 use render_engine::object::{Drawcall, Object, ObjectPrototype};
+use render_engine::pipeline_cache::PipelineCache;
 use render_engine::render_passes;
 use render_engine::system::{Pass, System};
 use render_engine::utils::Timer;
@@ -54,6 +55,14 @@ fn main() {
     let rpass_cubeview = render_passes::basic(device.clone());
     let rpass_prepass = render_passes::only_depth(device.clone());
     let rpass_test = render_passes::basic(device.clone());
+    
+    // Create pipeline caches for each render pass
+    let mut pipeline_cache_main = PipelineCache::new(device.clone(), render_pass.clone());
+    let mut pipeline_cache_shadow = PipelineCache::new(device.clone(), rpass_shadow.clone());
+    let mut pipeline_cache_shadow_blur = PipelineCache::new(device.clone(), rpass_shadow_blur.clone());
+    let mut pipeline_cache_cubeview = PipelineCache::new(device.clone(), rpass_cubeview.clone());
+    let mut pipeline_cache_prepass = PipelineCache::new(device.clone(), rpass_prepass.clone());
+    let mut pipeline_cache_test = PipelineCache::new(device.clone(), rpass_test.clone());
 
     let mut system = System::new(
         queue.clone(),
@@ -110,7 +119,8 @@ fn main() {
         rpass_cubeview.clone(),
         relative_path("shaders/pretty/debug_vert.glsl"),
         relative_path("shaders/pretty/debug_frag.glsl"),
-    );
+    )
+    .build_direct(queue.clone(), rpass_cubeview.clone(), 0);
 
     window.set_render_pass(render_pass.clone());
 
@@ -182,7 +192,7 @@ fn main() {
                 ),
                 custom_dynamic_state: None,
             }
-            .build(queue.clone(), render_pass.clone(), 1);
+            .build(queue.clone(), render_pass.clone(), &mut pipeline_cache_main, 1);
             println!("after build");
 
             object
@@ -198,15 +208,17 @@ fn main() {
         rpass_cubeview.clone(),
         relative_path("shaders/pretty/fullscreen_vert.glsl"),
         relative_path("shaders/pretty/display_cubemap_frag.glsl"),
-    );
+    )
+    .build_direct(queue.clone(), rpass_cubeview.clone(), 0);
 
     // and to blur shadow map
     let mut quad_blur = fullscreen_quad(
         queue.clone(),
-        rpass_shadow_blur,
+        rpass_shadow_blur.clone(),
         relative_path("shaders/pretty/fullscreen_vert.glsl"),
         relative_path("shaders/pretty/blur_frag.glsl"),
-    );
+    )
+    .build_direct(queue.clone(), rpass_shadow_blur.clone(), 0);
     quad_blur.pipeline_spec.write_depth = true;
 
     let shadow_cast_base = ObjectPrototype {
@@ -231,7 +243,7 @@ fn main() {
         collection: ((model_data,), (camera_data.clone(),)),
         custom_dynamic_state: None,
     }
-    .build(queue.clone(), rpass_prepass.clone(), 0);
+    .build(queue.clone(), rpass_prepass.clone(), &mut pipeline_cache_prepass, 0);
 
     // create mesh for light (just a sphere)
     // we need 2 objects: one for the depth prepass and one for the geometry stage
@@ -252,7 +264,7 @@ fn main() {
         collection: ((model_data,), (camera_data.clone(),)),
         custom_dynamic_state: None,
     }
-    .build(queue.clone(), rpass_prepass.clone(), 0);
+    .build(queue.clone(), rpass_prepass.clone(), &mut pipeline_cache_prepass, 0);
 
     let mut light_object_geo = ObjectPrototype {
         vs_path: relative_path("shaders/pretty/vert.glsl"),
@@ -270,7 +282,7 @@ fn main() {
         ),
         custom_dynamic_state: None,
     }
-    .build(queue.clone(), render_pass.clone(), 1);
+    .build(queue.clone(), render_pass.clone(), &mut pipeline_cache_main, 1);
 
     // create wireframe mesh
     let wireframe_mesh = wireframe(&only_pos_from_ptnt(&merged_mesh));
@@ -287,7 +299,7 @@ fn main() {
         collection: ((model_data,), (camera_data,)),
         custom_dynamic_state: None,
     }
-    .build(queue.clone(), render_pass.clone(), 1);
+    .build(queue.clone(), render_pass.clone(), &mut pipeline_cache_main, 1);
 
     // used in main loop
     let mut timer_setup = Timer::new("Setup time");
@@ -552,6 +564,12 @@ fn main() {
     println!("Avg. delta: {} ms", window.get_avg_delta() * 1_000.0);
     timer_setup.print();
     timer_draw.print();
+    
+    // Print pipeline cache stats
+    println!("\nPipeline cache stats:");
+    pipeline_cache_main.print_stats();
+    pipeline_cache_shadow.print_stats();
+    pipeline_cache_prepass.print_stats();
 }
 
 #[allow(dead_code)]
@@ -589,6 +607,8 @@ fn convert_to_shadow_casters<V: Vertex>(
     base_object: ObjectPrototype<V, ()>,
     light_data: Light,
 ) -> Vec<Object<(Set<(Matrix4,)>, Set<(Matrix4,)>, Set<(Matrix4,)>, Set<(Light,)>)>> {
+    // Create a pipeline cache for shadow casters
+    let mut pipeline_cache = PipelineCache::new(queue.device().clone(), render_pass.clone());
     // if you want to make point lamps cast shadows, you need shadow cubemaps
     // render-engine doesn't support geometry shaders, so the easiest way to do
     // this is to convert one object into 6 different ones, one for each face of
@@ -665,7 +685,7 @@ fn convert_to_shadow_casters<V: Vertex>(
                 write_depth: base_object.write_depth.clone(),
                 mesh: base_object.mesh.clone(),
             }
-            .build(queue.clone(), render_pass.clone(), 0)
+            .build(queue.clone(), render_pass.clone(), &mut pipeline_cache, 0)
         })
         .collect()
 }
