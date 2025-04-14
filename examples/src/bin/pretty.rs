@@ -147,9 +147,13 @@ fn main() {
 
     println!("Total meshes: {}", meshes.len());
 
+    // merge meshes for use in depth prepass and shadow casting
+    let merged_mesh = merge(&meshes);
+    let merged_mesh_pos_only = only_pos_from_ptnt(&merged_mesh);
+
     // create objects for the geometry pass
     let mut geo_objects: Vec<Object<_>> = meshes
-        .iter()
+        .into_iter()
         .enumerate()
         .map(|(idx, mesh)| {
             println!("Converting model {}\n", idx);
@@ -163,13 +167,14 @@ fn main() {
             };
             let textures = textures[mat_idx].clone();
 
-            ObjectPrototype {
+            println!("before build");
+            let object = ObjectPrototype {
                 vs_path: relative_path("shaders/pretty/vert.glsl"),
                 fs_path: relative_path("shaders/pretty/all_frag.glsl"),
                 fill_type: PrimitiveTopology::TriangleList,
                 read_depth: true,
                 write_depth: true,
-                mesh: mesh.clone(),
+                mesh: mesh,
                 collection: (
                     (material_data.clone(), model_data),
                     textures,
@@ -177,7 +182,10 @@ fn main() {
                 ),
                 custom_dynamic_state: None,
             }
-            .build(queue.clone(), render_pass.clone(), 1)
+            .build(queue.clone(), render_pass.clone(), 1);
+            println!("after build");
+
+            object
         })
         .collect();
 
@@ -200,10 +208,6 @@ fn main() {
         relative_path("shaders/pretty/blur_frag.glsl"),
     );
     quad_blur.pipeline_spec.write_depth = true;
-
-    // merge meshes for use in depth prepass and shadow casting
-    let merged_mesh = merge(&meshes);
-    let merged_mesh_pos_only = only_pos_from_ptnt(&merged_mesh);
 
     let shadow_cast_base = ObjectPrototype {
         vs_path: relative_path("shaders/pretty/shadow_cast_vert.glsl"),
