@@ -58,7 +58,6 @@ fn main() {
     let mut system = System::new(
         queue.clone(),
         vec![
-            /*
             // renders to shadow cubemap
             Pass {
                 name: "shadow",
@@ -94,8 +93,8 @@ fn main() {
                 images_needed_tags: vec!["shadow_map_blur"],
                 render_pass: render_pass.clone(),
             },
-            */
 
+            /*
             // Why it broken
             Pass {
                 name: "test",
@@ -103,9 +102,10 @@ fn main() {
                 images_needed_tags: vec![],
                 render_pass: rpass_test.clone(),
             },
+            */
         ],
         custom_images,
-        "test",
+        "color",
     );
 
     let quad_debug = fullscreen_quad(

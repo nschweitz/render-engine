@@ -321,6 +321,8 @@ impl<T1: Data, T2: Data> SetUpload for (T1, T2) {
         let buffer1 = upload_data(device.clone(), self.0.clone());
         let buffer2 = upload_data(device.clone(), self.1.clone());
 
+        println!("Uploading set at idx {}", set_idx);
+
         Arc::new(
             PersistentDescriptorSet::start(pipeline, set_idx)
                 .add_buffer(buffer1)

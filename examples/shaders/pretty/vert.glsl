@@ -11,6 +11,8 @@ layout(location = 2) out vec3 tan_cam_pos;
 layout(location = 3) out vec3 tan_frag_pos;
 layout(location = 4) out vec3 v_pos;
 
+layout(set = 0, binding = 0) uniform sampler2D shadow_map;
+
 layout(set = 1, binding = 0) uniform Material {
   vec3 ambient;
   vec3 diffuse;

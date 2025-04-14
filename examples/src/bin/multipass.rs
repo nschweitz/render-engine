@@ -69,7 +69,7 @@ fn main() {
         collection: (),
         custom_dynamic_state: None,
     }
-    .build(queue.clone(), render_pass.clone());
+    .build(queue.clone(), render_pass.clone(), 1);
 
     let quad = fullscreen_quad(
         queue.clone(),
