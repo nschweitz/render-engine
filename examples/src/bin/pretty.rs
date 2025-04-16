@@ -330,8 +330,20 @@ fn main() {
         light_object_prepass.collection.0.data.0 = light_model_data;
         light_object_prepass.collection.0.upload(device.clone());
 
+        // Update geometry pass collections
         light_object_geo.collection.0.data.1 = light_model_data;
         light_object_geo.collection.0.upload(device.clone());
+
+        geo_objects
+            .iter_mut()
+            .for_each(|obj| {
+                obj.collection.2.data.0 = camera_data.clone();
+                obj.collection.2.data.1 = light_data.clone();
+                obj.collection.2.upload(device.clone());
+            });
+
+        wireframe_object.collection.1.data.0 = camera_data.clone();
+        wireframe_object.collection.1.upload(device.clone());
 
         if window
             .get_frame_info()
@@ -360,6 +372,10 @@ fn main() {
                 view_mode = 12;
             }
             update_view = true;
+        }
+
+        if window.get_frame_info().keydowns.contains(&VirtualKeyCode::R) {
+            draw_wireframe = !draw_wireframe;
         }
 
         if update_view {
@@ -468,17 +484,6 @@ fn main() {
             update_view = false;
         }
 
-        light_object_geo.collection.0.data.1 = light_model_data;
-        light_object_geo.collection.0.upload(device.clone());
-
-        geo_objects
-            .iter_mut()
-            .for_each(|obj| {
-                obj.collection.2.data.0 = camera_data.clone();
-                obj.collection.2.data.1 = light_data.clone();
-                obj.collection.2.upload(device.clone());
-            });
-
         // start drawing!
         system.start_window(&mut window);
 
@@ -496,7 +501,6 @@ fn main() {
 
         // depth_prepass
         system.add_object(&depth_prepass_object);
-        //system.add_object(&light_object_prepass);
 
         system.next_pass();
 
@@ -506,8 +510,13 @@ fn main() {
         system.next_pass();
 
         // geometry
-        for geo_object in geo_objects.iter() {
-            system.add_object(&geo_object);
+
+        if draw_wireframe {
+            system.add_object(&wireframe_object.clone());
+        } else {
+            for geo_object in geo_objects.iter() {
+                system.add_object(&geo_object);
+            }
         }
 
         system.add_object(&light_object_geo);
