@@ -348,6 +348,121 @@ fn main() {
             }
         }
 
+        // Switch view mode, maybe
+        if window.get_frame_info().keydowns.contains(&VirtualKeyCode::C) {
+            println!("Next view mode");
+            view_mode = (view_mode + 1) % 14;
+
+            match view_mode {
+                0 => {
+                    // default: everything enabled
+                    geo_objects.iter_mut().for_each(|obj| {
+                        obj.pipeline_spec.fs_path = relative_path("shaders/pretty/all_frag.glsl");
+                    });
+                    system.output_tag = "color";
+                }
+                1 => {
+                    // pure white
+                    geo_objects.iter_mut().for_each(|obj| {
+                        obj.pipeline_spec.fs_path = relative_path("shaders/pretty/white_frag.glsl");
+                    });
+                    system.output_tag = "color";
+                }
+                2 => {
+                    // depth only
+                    system.output_tag = "depth_view";
+                }
+                3 => {
+                    // diffuse_only
+                    geo_objects.iter_mut().for_each(|obj| {
+                        obj.pipeline_spec.fs_path =
+                            relative_path("shaders/pretty/diffuse_only_frag.glsl");
+                    });
+                    system.output_tag = "color";
+                }
+                4 => {
+                    // diffuse and light direction
+                    geo_objects.iter_mut().for_each(|obj| {
+                        obj.pipeline_spec.fs_path =
+                            relative_path("shaders/pretty/diffuse_and_light_frag.glsl");
+                    });
+                    system.output_tag = "color";
+                }
+                5 => {
+                    // diffuse and light distance + direction
+                    geo_objects.iter_mut().for_each(|obj| {
+                        obj.pipeline_spec.fs_path =
+                            relative_path("shaders/pretty/diffuse_light_distance_frag.glsl");
+                    });
+                    system.output_tag = "color";
+                }
+                6 => {
+                    // diffuse and specular
+                    geo_objects.iter_mut().for_each(|obj| {
+                        obj.pipeline_spec.fs_path =
+                            relative_path("shaders/pretty/diffuse_and_spec.glsl");
+                    });
+                    system.output_tag = "color";
+                }
+                7 => {
+                    // diffuse, specular, normal mapping
+                    geo_objects.iter_mut().for_each(|obj| {
+                        obj.pipeline_spec.fs_path =
+                            relative_path("shaders/pretty/diffuse_spec_normal.glsl");
+                    });
+                    system.output_tag = "color";
+                }
+                8 => {
+                    // shadows only
+                    geo_objects.iter_mut().for_each(|obj| {
+                        obj.pipeline_spec.fs_path =
+                            relative_path("shaders/pretty/shadows_only.glsl");
+                    });
+                    system.output_tag = "color";
+                }
+                9 => {
+                    // diffuse + spec + normal mapping + shadows
+                    geo_objects.iter_mut().for_each(|obj| {
+                        obj.pipeline_spec.fs_path =
+                            relative_path("shaders/pretty/shadows_and_color.glsl");
+                    });
+                    system.output_tag = "color";
+                }
+                10 => {
+                    // diffuse + spec + normal mapping + shadows + tonemapping
+                    geo_objects.iter_mut().for_each(|obj| {
+                        obj.pipeline_spec.fs_path = relative_path("shaders/pretty/all_frag.glsl");
+                    });
+                    system.output_tag = "color";
+                }
+                11 => {
+                    // specular only
+                    geo_objects.iter_mut().for_each(|obj| {
+                        obj.pipeline_spec.fs_path =
+                            relative_path("shaders/pretty/specular_only.glsl");
+                    });
+                    system.output_tag = "color";
+                }
+                12 => {
+                    // specular only, low shininess
+                    geo_objects.iter_mut().for_each(|obj| {
+                        obj.pipeline_spec.fs_path =
+                            relative_path("shaders/pretty/specular_only_2.glsl");
+                    });
+                    system.output_tag = "color";
+                }
+                13 => {
+                    // normals
+                    geo_objects.iter_mut().for_each(|obj| {
+                        obj.pipeline_spec.fs_path =
+                            relative_path("shaders/pretty/normals_only.glsl");
+                    });
+                    system.output_tag = "color";
+                }
+                _ => { panic!("bad view mode") }
+            }
+        }
+
         light_object_geo.collection.0.data.1 = light_model_data;
         light_object_geo.collection.0.upload(device.clone());
 
