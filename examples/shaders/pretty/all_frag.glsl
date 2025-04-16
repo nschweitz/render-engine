@@ -112,7 +112,7 @@ void main() {
   vec3 normal = texture(normal_map, v_tex_coord).rgb * 2.0 - 1.0;
 
   // ambient
-  vec3 ambient = tex_diffuse.rgb * 0.01;
+  vec3 ambient = tex_diffuse.rgb * 0.02;
 
   // diffuse
   vec3 light_dir = normalize(tan_light_pos - tan_frag_pos);

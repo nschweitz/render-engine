@@ -351,7 +351,7 @@ fn main() {
         // Switch view mode, maybe
         if window.get_frame_info().keydowns.contains(&VirtualKeyCode::C) {
             println!("Next view mode");
-            view_mode = (view_mode + 1) % 14;
+            view_mode = (view_mode + 1) % 12;
 
             match view_mode {
                 0 => {
@@ -362,17 +362,6 @@ fn main() {
                     system.output_tag = "color";
                 }
                 1 => {
-                    // pure white
-                    geo_objects.iter_mut().for_each(|obj| {
-                        obj.pipeline_spec.fs_path = relative_path("shaders/pretty/white_frag.glsl");
-                    });
-                    system.output_tag = "color";
-                }
-                2 => {
-                    // depth only
-                    system.output_tag = "depth_view";
-                }
-                3 => {
                     // diffuse_only
                     geo_objects.iter_mut().for_each(|obj| {
                         obj.pipeline_spec.fs_path =
@@ -380,7 +369,7 @@ fn main() {
                     });
                     system.output_tag = "color";
                 }
-                4 => {
+                2 => {
                     // diffuse and light direction
                     geo_objects.iter_mut().for_each(|obj| {
                         obj.pipeline_spec.fs_path =
@@ -388,7 +377,7 @@ fn main() {
                     });
                     system.output_tag = "color";
                 }
-                5 => {
+                3 => {
                     // diffuse and light distance + direction
                     geo_objects.iter_mut().for_each(|obj| {
                         obj.pipeline_spec.fs_path =
@@ -396,11 +385,27 @@ fn main() {
                     });
                     system.output_tag = "color";
                 }
-                6 => {
+                4 => {
+                    // specular only
+                    geo_objects.iter_mut().for_each(|obj| {
+                        obj.pipeline_spec.fs_path =
+                            relative_path("shaders/pretty/specular_only.glsl");
+                    });
+                    system.output_tag = "color";
+                }
+                5 => {
                     // diffuse and specular
                     geo_objects.iter_mut().for_each(|obj| {
                         obj.pipeline_spec.fs_path =
                             relative_path("shaders/pretty/diffuse_and_spec.glsl");
+                    });
+                    system.output_tag = "color";
+                }
+                6 => {
+                    // normals
+                    geo_objects.iter_mut().for_each(|obj| {
+                        obj.pipeline_spec.fs_path =
+                            relative_path("shaders/pretty/normals_only.glsl");
                     });
                     system.output_tag = "color";
                 }
@@ -413,6 +418,10 @@ fn main() {
                     system.output_tag = "color";
                 }
                 8 => {
+                    // shadow maps
+                    system.output_tag = "depth_view";
+                }
+                9 => {
                     // shadows only
                     geo_objects.iter_mut().for_each(|obj| {
                         obj.pipeline_spec.fs_path =
@@ -420,7 +429,7 @@ fn main() {
                     });
                     system.output_tag = "color";
                 }
-                9 => {
+                10 => {
                     // diffuse + spec + normal mapping + shadows
                     geo_objects.iter_mut().for_each(|obj| {
                         obj.pipeline_spec.fs_path =
@@ -428,34 +437,10 @@ fn main() {
                     });
                     system.output_tag = "color";
                 }
-                10 => {
+                11 => {
                     // diffuse + spec + normal mapping + shadows + tonemapping
                     geo_objects.iter_mut().for_each(|obj| {
                         obj.pipeline_spec.fs_path = relative_path("shaders/pretty/all_frag.glsl");
-                    });
-                    system.output_tag = "color";
-                }
-                11 => {
-                    // specular only
-                    geo_objects.iter_mut().for_each(|obj| {
-                        obj.pipeline_spec.fs_path =
-                            relative_path("shaders/pretty/specular_only.glsl");
-                    });
-                    system.output_tag = "color";
-                }
-                12 => {
-                    // specular only, low shininess
-                    geo_objects.iter_mut().for_each(|obj| {
-                        obj.pipeline_spec.fs_path =
-                            relative_path("shaders/pretty/specular_only_2.glsl");
-                    });
-                    system.output_tag = "color";
-                }
-                13 => {
-                    // normals
-                    geo_objects.iter_mut().for_each(|obj| {
-                        obj.pipeline_spec.fs_path =
-                            relative_path("shaders/pretty/normals_only.glsl");
                     });
                     system.output_tag = "color";
                 }
