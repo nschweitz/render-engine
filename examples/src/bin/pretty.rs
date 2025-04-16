@@ -350,9 +350,19 @@ fn main() {
 
         // Switch view mode, maybe
         if window.get_frame_info().keydowns.contains(&VirtualKeyCode::C) {
-            println!("Next view mode");
             view_mode = (view_mode + 1) % 12;
+            update_view = true;
+        }
 
+        if window.get_frame_info().keydowns.contains(&VirtualKeyCode::V) {
+            view_mode = view_mode - 1;
+            if view_mode < 0 {
+                view_mode = 12;
+            }
+            update_view = true;
+        }
+
+        if update_view {
             match view_mode {
                 0 => {
                     // default: everything enabled
@@ -410,6 +420,14 @@ fn main() {
                     system.output_tag = "color";
                 }
                 7 => {
+                    // diffuse and specular, again - for normals before/after
+                    geo_objects.iter_mut().for_each(|obj| {
+                        obj.pipeline_spec.fs_path =
+                            relative_path("shaders/pretty/diffuse_and_spec.glsl");
+                    });
+                    system.output_tag = "color";
+                }
+                8 => {
                     // diffuse, specular, normal mapping
                     geo_objects.iter_mut().for_each(|obj| {
                         obj.pipeline_spec.fs_path =
@@ -417,11 +435,11 @@ fn main() {
                     });
                     system.output_tag = "color";
                 }
-                8 => {
+                9 => {
                     // shadow maps
                     system.output_tag = "depth_view";
                 }
-                9 => {
+                10 => {
                     // shadows only
                     geo_objects.iter_mut().for_each(|obj| {
                         obj.pipeline_spec.fs_path =
@@ -429,7 +447,7 @@ fn main() {
                     });
                     system.output_tag = "color";
                 }
-                10 => {
+                11 => {
                     // diffuse + spec + normal mapping + shadows
                     geo_objects.iter_mut().for_each(|obj| {
                         obj.pipeline_spec.fs_path =
@@ -437,7 +455,7 @@ fn main() {
                     });
                     system.output_tag = "color";
                 }
-                11 => {
+                12 => {
                     // diffuse + spec + normal mapping + shadows + tonemapping
                     geo_objects.iter_mut().for_each(|obj| {
                         obj.pipeline_spec.fs_path = relative_path("shaders/pretty/all_frag.glsl");
@@ -446,6 +464,8 @@ fn main() {
                 }
                 _ => { panic!("bad view mode") }
             }
+
+            update_view = false;
         }
 
         light_object_geo.collection.0.data.1 = light_model_data;
