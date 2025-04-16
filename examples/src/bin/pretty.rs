@@ -318,6 +318,9 @@ fn main() {
         light_object_prepass.collection.1.data.0 = camera_data.clone();
         light_object_prepass.collection.1.upload(device.clone());
 
+        light_object_geo.collection.2.data.0 = camera_data.clone();
+        light_object_geo.collection.2.upload(device.clone());
+
         // the light has moved, we need to update its model matrix
         let light_model_data: Matrix4 = scale(
             &translate(&Mat4::identity(), &make_vec3(&light_data.position)),
@@ -326,6 +329,9 @@ fn main() {
         .into();
         light_object_prepass.collection.0.data.0 = light_model_data;
         light_object_prepass.collection.0.upload(device.clone());
+
+        light_object_geo.collection.0.data.1 = light_model_data;
+        light_object_geo.collection.0.upload(device.clone());
 
         if window
             .get_frame_info()
@@ -370,7 +376,7 @@ fn main() {
 
         // depth_prepass
         system.add_object(&depth_prepass_object);
-        system.add_object(&light_object_prepass);
+        //system.add_object(&light_object_prepass);
 
         system.next_pass();
 
@@ -383,6 +389,8 @@ fn main() {
         for geo_object in geo_objects.iter() {
             system.add_object(&geo_object);
         }
+
+        system.add_object(&light_object_geo);
 
         timer_setup.stop();
 
